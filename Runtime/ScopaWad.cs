@@ -7,6 +7,7 @@ using Scopa.Formats.Texture.Wad.Lumps;
 using Scopa.Formats;
 using Scopa.Formats.Id;
 using UnityEngine;
+using UnityEngine.Rendering;
 
 #if UNITY_EDITOR
 using System.Diagnostics;
@@ -105,7 +106,6 @@ namespace Scopa {
             var material = texture.alphaIsTransparency ? GenerateMaterialAlpha(config) : GenerateMaterialOpaque(config);
             material.name = texture.name;
             material.mainTexture = texture;
-
             return material;
         }
 
@@ -114,10 +114,11 @@ namespace Scopa {
             Material material;
 
             if ( config.opaqueTemplate != null ) {
+                // TODO handle RP differences.
                 material = new Material(config.opaqueTemplate);
             }
             else {
-                material = new Material(Shader.Find("Standard"));
+                material = GetRPMaterial();
                 material.SetFloat("_Glossiness", 0.1f);
             }
 
@@ -129,10 +130,11 @@ namespace Scopa {
 			Material material;
 
 			if ( config.alphaTemplate != null ) {
+                // TODO handle RP differences.
 				material = new Material(config.alphaTemplate);
 			}
 			else {
-				material = new Material(Shader.Find("Standard"));
+				material = GetRPMaterial();
 				material.SetFloat("_Glossiness", 0.1f);
 				material.SetFloat("_Mode", 1);
 				material.EnableKeyword("_ALPHATEST_ON");
@@ -140,6 +142,27 @@ namespace Scopa {
 				material.renderQueue = 2450;
 			}
 
+            return material;
+        }
+
+        private static Material GetRPMaterial()
+        {
+            Shader rpShader = null;
+            // If there's not defaultRenderPipeline assigned, it's using built-in.
+            if (GraphicsSettings.defaultRenderPipeline == null)
+            {
+                rpShader = Shader.Find("Standard");
+            }
+            else
+            {
+                // TODO For now, we are assuming that anything non-built-in is URP; this is unideal.
+                // We probably want the ScopaWadConfig to allow for the user define a default shader
+                // to use for each RP.
+                rpShader = Shader.Find("Universal Render Pipeline/Lit");
+            }
+
+            var material = new Material(rpShader);
+            Debug.Log($"Material has been assign {rpShader} shader.", material);
             return material;
         }
 
@@ -352,11 +375,13 @@ namespace Scopa {
 
             // Blit the pixels on texture to the RenderTexture
             if ( palette != null ) {
+                // TODO handle RP differences.
                 var mat = new Material( Shader.Find("Hidden/PalettizeBlit") );
                 mat.SetColor("_Color", tint);
                 mat.SetColorArray( "_Colors", palette.Select( c => new Color(c.r / 255f, c.g / 255f, c.b / 255f) ).ToArray() );
                 Graphics.Blit(source, tmp, mat);
             } else {
+                // TODO handle RP differences.
                 var mat = new Material( Shader.Find("Hidden/BlitTint") );
                 mat.SetColor("_Color", tint);
                 Graphics.Blit(source, tmp, mat);
